@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // Si corres en Chrome o Windows desktop usamos 127.0.0.1.
   // Si usaras un emulador de Android real, sería 'http://10.0.2.2:8001'
-  static const String baseUrl = 'http://127.0.0.1:8001';
+  static const String baseUrl = 'https://agendax-api.onrender.com';
 
   // 1. INICIAR SESIÓN
   static Future<Map<String, dynamic>?> login(String correo, String password) async {
