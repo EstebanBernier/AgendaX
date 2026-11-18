@@ -12,3 +12,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.3
+      - key: SECRET_KEY        # firma las sesiones del panel de administrador
+        generateValue: true
