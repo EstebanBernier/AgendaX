@@ -9,8 +9,13 @@ class UsuarioCreate(BaseModel):
     password: str
     rol: str = "cliente"  # por defecto tiene que ser cliente
 
-class UsuarioResponse(UsuarioCreate):
+class UsuarioResponse(BaseModel):
+    """Datos públicos del usuario: nunca incluye la contraseña."""
     id: int
+    nombre: str
+    correo: str
+    telefono: str
+    rol: str
 
     class Config:
         from_attributes = True

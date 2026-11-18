@@ -37,7 +37,8 @@ s, _ = call("POST", "/usuarios/registro", {"nombre": "x", "correo": correo, "tel
 check("correo repetido -> 400", s == 400)
 
 s, l = call("POST", "/usuarios/login", {"correo": correo, "password": "Clave12345"})
-check("login cliente", s == 200 and l["usuario"]["rol"] == "cliente")
+check("login cliente devuelve nombre, correo y TELÉFONO", s == 200 and l["usuario"]["rol"] == "cliente" and l["usuario"]["telefono"] == "3001234567" and l["usuario"]["nombre"] == "Cliente Prueba")
+check("el registro no devuelve la contraseña", "password" not in u)
 s, _ = call("POST", "/usuarios/login", {"correo": correo, "password": "mala"})
 check("login con clave mala -> 401", s == 401)
 s, lb = call("POST", "/usuarios/login", {"correo": "sandro@delux.com", "password": "Barbero123"})

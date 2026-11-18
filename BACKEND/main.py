@@ -77,6 +77,7 @@ def login(credenciales: schemas.LoginRequest, db: Session = Depends(get_db)):
             "id": usuario.id,
             "nombre": usuario.nombre,
             "correo": usuario.correo,
+            "telefono": usuario.telefono,
             "rol": usuario.rol
         }
     }
