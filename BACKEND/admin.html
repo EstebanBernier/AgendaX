@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgendaX · Panel administrativo</title>
+<style>
+:root{--red:#e11d48;--red-d:#be123c;--ink:#111;--mut:#6b7280;--line:#e5e7eb;--bg:#f4f4f6;--card:#fff;--ok:#15803d;--warn:#b45309}
+@media (prefers-color-scheme:dark){:root{--ink:#f3f4f6;--mut:#9ca3af;--line:#2d2d33;--bg:#0f0f12;--card:#1a1a1f}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+h1,h2,h3{margin:0}
+.hidden{display:none!important}
+header{background:#111;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+.brand{font-weight:800;font-size:20px;letter-spacing:-.5px}.brand i{color:var(--red);font-style:normal}
+nav{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+nav button{background:none;border:0;color:#bbb;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+nav button.on,nav button:hover{background:#2a2a2f;color:#fff}
+nav button.on{box-shadow:inset 0 -2px var(--red)}
+main{max-width:1100px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.stat b{display:block;font-size:30px;color:var(--red)}.stat span{color:var(--mut);font-size:13px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;text-transform:uppercase;color:var(--mut);letter-spacing:.04em}
+.scroll{overflow-x:auto}
+input,select,textarea{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);max-width:100%}
+input:focus,select:focus{outline:2px solid var(--red);outline-offset:-1px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px;font-weight:600}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row>div{flex:1;min-width:140px}
+button.btn{background:var(--red);color:#fff;border:0;padding:9px 16px;border-radius:9px;cursor:pointer;font:inherit;font-weight:600}
+button.btn:hover{background:var(--red-d)}
+button.sec{background:var(--card);color:var(--ink);border:1px solid var(--line)}button.sec:hover{background:var(--bg)}
+button.dng{background:none;color:var(--red);border:1px solid var(--red)}button.dng:hover{background:var(--red);color:#fff}
+button.sm{padding:5px 10px;font-size:13px}
+.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:#e5e7eb;color:#374151}
+.pill.agendada{background:#fef3c7;color:#92400e}.pill.confirmada{background:#dbeafe;color:#1e40af}
+.pill.completada{background:#dcfce7;color:#166534}.pill.cancelada{background:#fee2e2;color:#991b1b}.pill.no_asistió{background:#111;color:#fff}
+.msg{padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:14px}
+.msg.err{background:#fee2e2;color:#991b1b}.msg.ok{background:#dcfce7;color:#166534}
+.bar{height:10px;background:var(--line);border-radius:99px;overflow:hidden;min-width:90px}
+.bar>i{display:block;height:100%;background:var(--red)}
+.muted{color:var(--mut)}.right{text-align:right}
+.login{max-width:380px;margin:12vh auto;padding:0 16px}
+.login .card{padding:26px}.login h1{font-size:28px;margin-bottom:4px}
+.login input{width:100%;margin-bottom:12px}
+.stars{color:#f59e0b;letter-spacing:2px}
+.days td{padding:6px 8px}.days input[type=time]{width:120px}
+.chart{display:flex;align-items:flex-end;gap:3px;height:120px;margin-top:10px}
+.chart div{flex:1;background:var(--red);border-radius:3px 3px 0 0;min-height:2px;opacity:.85}
+.chart div:hover{opacity:1}
+@media(max-width:640px){main{padding:12px}th,td{padding:7px 5px;font-size:13px}}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="vLogin" class="login">
+  <div class="card">
+    <div class="brand" style="color:var(--ink)">Agenda<i>X</i></div>
+    <h1>Panel administrativo</h1>
+    <p class="muted" style="margin:6px 0 18px">Delux Barber · acceso solo para administradores</p>
+    <div id="loginErr" class="msg err hidden"></div>
+    <label for="lCorreo">Correo electrónico</label>
+    <input id="lCorreo" type="email" autocomplete="username" placeholder="admin@delux.com">
+    <label for="lPass">Contraseña</label>
+    <input id="lPass" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn" style="width:100%" onclick="login()">Iniciar sesión</button>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="vApp" class="hidden">
+<header>
+  <div class="brand">Agenda<i>X</i></div>
+  <nav id="nav"></nav>
+  <button class="btn sec sm" onclick="logout()">Cerrar sesión</button>
+</header>
+<main>
+  <div id="flash"></div>
+  <section id="p-resumen"></section>
+  <section id="p-citas" class="hidden"></section>
+  <section id="p-servicios" class="hidden"></section>
+  <section id="p-barberos" class="hidden"></section>
+  <section id="p-horarios" class="hidden"></section>
+  <section id="p-resenas" class="hidden"></section>
+  <section id="p-reportes" class="hidden"></section>
+</main>
+</div>
+
+<script>
+"use strict";
+const API = location.origin;
+const TABS = [["resumen","Resumen"],["citas","Citas"],["servicios","Servicios"],["barberos","Barberos"],
+              ["horarios","Horarios"],["resenas","Reseñas"],["reportes","Reportes"]];
+const DIAS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+const ESTADOS = ["agendada","confirmada","completada","no_asistió","cancelada"];
+const ETIQ = {agendada:"Agendada",confirmada:"Confirmada",completada:"Completada",no_asistió:"No asistió",cancelada:"Cancelada"};
+let token = sessionStorage.getItem("agx_token") || "";
+let barberos = [];   // cache para selects
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "$" + Math.round(n || 0).toLocaleString("es-CO");
+const pill = e => `<span class="pill ${esc(e)}">${esc(ETIQ[e] || e)}</span>`;
+const stars = n => "★".repeat(n) + "☆".repeat(5 - n);
+const hoy = () => { const d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+const iso = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+
+async function api(method, path, body) {
+  let res;
+  try {
+    res = await fetch(API + path, { method,
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch { throw new Error("No se pudo conectar con el servidor."); }
+  let data = null; try { data = await res.json(); } catch {}
+  if (res.status === 401 && token) { logout(true); throw new Error("Tu sesión expiró. Inicia sesión de nuevo."); }
+  if (!res.ok) throw new Error((data && typeof data.detail === "string") ? data.detail : "Error " + res.status);
+  return data;
+}
+function flash(text, ok = true) {
+  $("flash").innerHTML = `<div class="msg ${ok ? "ok" : "err"}">${esc(text)}</div>`;
+  clearTimeout(flash.t); flash.t = setTimeout(() => $("flash").innerHTML = "", 4500);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { flash(e.message, false); } };
+
+/* ---------- sesión ---------- */
+async function login() {
+  const err = $("loginErr"); err.classList.add("hidden");
+  try {
+    const r = await fetch(API + "/admin/login", { method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ correo: $("lCorreo").value.trim(), password: $("lPass").value }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "No se pudo iniciar sesión");
+    token = d.token; sessionStorage.setItem("agx_token", token); start();
+  } catch (e) { err.textContent = e.message; err.classList.remove("hidden"); }
+}
+function logout(expired) {
+  token = ""; sessionStorage.removeItem("agx_token");
+  $("vApp").classList.add("hidden"); $("vLogin").classList.remove("hidden"); $("lPass").value = "";
+  if (expired) { $("loginErr").textContent = "Tu sesión expiró. Inicia sesión de nuevo."; $("loginErr").classList.remove("hidden"); }
+}
+$("lPass").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+
+async function start() {
+  $("vLogin").classList.add("hidden"); $("vApp").classList.remove("hidden");
+  $("nav").innerHTML = TABS.map(([k, t]) => `<button data-t="${k}" onclick="show('${k}')">${t}</button>`).join("");
+  await guard(loadBarberos)();
+  show("resumen");
+}
+async function loadBarberos() { barberos = await api("GET", "/admin/barberos"); }
+const bOpts = (sel, todos) => (todos ? `<option value="">Todos</option>` : "") +
+  barberos.map(b => `<option value="${b.id}" ${String(sel) === String(b.id) ? "selected" : ""}>${esc(b.nombre)}</option>`).join("");
+
+function show(tab) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.t === tab));
+  TABS.forEach(([k]) => $("p-" + k).classList.toggle("hidden", k !== tab));
+  ({ resumen: vResumen, citas: vCitas, servicios: vServicios, barberos: vBarberos,
+     horarios: vHorarios, resenas: vResenas, reportes: vReportes })[tab]().catch(e => flash(e.message, false));
+}
+
+/* ---------- Resumen ---------- */
+async function vResumen() {
+  const r = await api("GET", "/admin/resumen");
+  $("p-resumen").innerHTML = `
+    <h2 style="margin-bottom:12px">Resumen de hoy <span class="muted" style="font-size:14px;font-weight:400">${esc(r.fecha)}</span></h2>
+    <div class="grid" style="margin-bottom:16px">
+      <div class="stat"><b>${r.citas_hoy}</b><span>Citas del día</span></div>
+      <div class="stat"><b>${r.espacios_libres}</b><span>Espacios libres (resto del día)</span></div>
+      <div class="stat"><b>${r.barberos_activos}<small class="muted" style="font-size:16px">/${r.barberos_total}</small></b><span>Barberos activos hoy</span></div>
+      <div class="stat"><b>${r.promedio_resenas ?? "–"}</b><span>Calificación promedio (${r.resenas_total} reseñas)</span></div>
+    </div>
+    <div class="card"><h3 style="margin-bottom:10px">Próximas reservas</h3>
+    ${tablaCitas(r.proximas, false) || '<p class="muted">No hay reservas próximas.</p>'}</div>`;
+}
+
+/* ---------- Citas ---------- */
+function tablaCitas(lista, acciones) {
+  if (!lista.length) return "";
+  return `<div class="scroll"><table><thead><tr><th>Fecha y hora</th><th>Cliente</th><th>Servicio</th><th>Barbero</th><th>Precio</th><th>Estado</th>${acciones ? "<th></th>" : ""}</tr></thead><tbody>` +
+    lista.map(c => `<tr><td>${esc(c.fecha_hora)}</td><td>${esc(c.cliente)}<br><small class="muted">${esc(c.cliente_telefono)}</small></td>
+      <td>${esc(c.servicio)}</td><td>${esc(c.barbero)}</td><td>${money(c.precio)}</td><td>${pill(c.estado)}</td>
+      ${acciones ? `<td class="right" style="white-space:nowrap"><select onchange="cambiarEstado(${c.id},this.value)">
+        ${ESTADOS.filter(e => e !== "cancelada").map(e => `<option value="${e}" ${c.estado === e ? "selected" : ""}>${ETIQ[e]}</option>`).join("")}${c.estado === "cancelada" ? '<option selected>Cancelada</option>' : ""}</select>
+        ${c.estado !== "cancelada" && c.estado !== "completada" ? `<button class="btn dng sm" onclick="cancelarCita(${c.id})">Cancelar</button>` : ""}</td>` : ""}</tr>`).join("") +
+    `</tbody></table></div>`;
+}
+async function vCitas() {
+  const el = $("p-citas");
+  if (!el.dataset.init) {
+    el.dataset.init = 1;
+    el.innerHTML = `<h2 style="margin-bottom:12px">Citas</h2>
+      <div class="card"><div class="row">
+        <div><label>Fecha</label><input type="date" id="fFecha" onchange="vCitas()"></div>
+        <div><label>Estado</label><select id="fEstado" onchange="vCitas()"><option value="">Todos</option>${ESTADOS.map(e => `<option value="${e}">${ETIQ[e]}</option>`).join("")}</select></div>
+        <div><label>Barbero</label><select id="fBarbero" onchange="vCitas()">${bOpts("", true)}</select></div>
+        <div style="flex:0"><button class="btn sec" onclick="$('fFecha').value='';vCitas()">Limpiar</button></div>
+      </div></div><div class="card" id="citasList"></div>`;
+  }
+  const q = new URLSearchParams();
+  if ($("fFecha").value) q.set("fecha", $("fFecha").value);
+  if ($("fEstado").value) q.set("estado", $("fEstado").value);
+  if ($("fBarbero").value) q.set("barbero_id", $("fBarbero").value);
+  const lista = await api("GET", "/admin/citas?" + q);
+  $("citasList").innerHTML = tablaCitas(lista, true) || '<p class="muted">No hay citas con ese filtro.</p>';
+}
+window.cambiarEstado = guard(async (id, estado) => {
+  await api("PUT", `/citas/${id}/estado?nuevo_estado=${encodeURIComponent(estado)}`); flash("Estado actualizado"); await vCitas();
+});
+window.cancelarCita = guard(async id => {
+  if (!confirm("¿Cancelar esta cita? El horario quedará libre.")) return;
+  await api("PUT", `/citas/${id}/cancelar`); flash("Cita cancelada"); await vCitas();
+});
+
+/* ---------- Servicios (RF-011) ---------- */
+async function vServicios() {
+  const lista = await api("GET", "/servicios/");
+  $("p-servicios").innerHTML = `<h2 style="margin-bottom:12px">Servicios</h2>
+    <div class="card"><h3 style="margin-bottom:10px">Nuevo servicio</h3><div class="row">
+      <div><label>Nombre</label><input id="sNombre"></div>
+      <div style="flex:2"><label>Descripción</label><input id="sDesc" style="width:100%"></div>
+      <div><label>Precio (COP)</label><input id="sPrecio" type="number" min="0" step="1000"></div>
+      <div><label>Duración (min)</label><input id="sDur" type="number" min="5" step="5" value="30"></div>
+      <div style="flex:0"><button class="btn" onclick="crearServicio()">Agregar</button></div></div></div>
+    <div class="card scroll"><table><thead><tr><th>Nombre</th><th>Descripción</th><th>Precio</th><th>Duración</th><th></th></tr></thead><tbody>
+    ${lista.map(s => `<tr id="sv${s.id}"><td>${esc(s.nombre)}</td><td>${esc(s.descripcion)}</td><td>${money(s.precio)}</td><td>${s.duracion} min</td>
+      <td class="right" style="white-space:nowrap"><button class="btn sec sm" onclick='editarServicio(${JSON.stringify(s).replace(/'/g,"&#39;")})'>Editar</button>
+      <button class="btn dng sm" onclick="borrarServicio(${s.id})">Eliminar</button></td></tr>`).join("")}
+    </tbody></table></div>`;
+}
+window.crearServicio = guard(async () => {
+  await api("POST", "/admin/servicios", { nombre: $("sNombre").value.trim(), descripcion: $("sDesc").value.trim(),
+    precio: parseFloat($("sPrecio").value || 0), duracion: parseInt($("sDur").value || 0) });
+  flash("Servicio agregado"); await vServicios();
+});
+window.editarServicio = s => {
+  $("sv" + s.id).innerHTML = `<td><input id="e1" value="${esc(s.nombre)}"></td><td><input id="e2" value="${esc(s.descripcion)}" style="width:100%"></td>
+    <td><input id="e3" type="number" min="0" step="1000" value="${s.precio}" style="width:110px"></td>
+    <td><input id="e4" type="number" min="5" step="5" value="${s.duracion}" style="width:80px"></td>
+    <td class="right" style="white-space:nowrap"><button class="btn sm" onclick="guardarServicio(${s.id})">Guardar</button> <button class="btn sec sm" onclick="vServicios()">Cancelar</button></td>`;
+};
+window.guardarServicio = guard(async id => {
+  await api("PUT", `/admin/servicios/${id}`, { nombre: $("e1").value.trim(), descripcion: $("e2").value.trim(),
+    precio: parseFloat($("e3").value || 0), duracion: parseInt($("e4").value || 0) });
+  flash("Servicio actualizado"); await vServicios();
+});
+window.borrarServicio = guard(async id => {
+  if (!confirm("¿Eliminar este servicio?")) return;
+  await api("DELETE", `/admin/servicios/${id}`); flash("Servicio eliminado"); await vServicios();
+});
+
+/* ---------- Barberos ---------- */
+async function vBarberos() {
+  await loadBarberos();
+  $("p-barberos").innerHTML = `<h2 style="margin-bottom:12px">Barberos</h2>
+    <div class="card"><h3 style="margin-bottom:4px">Nuevo barbero</h3><p class="muted" style="margin:0 0 10px;font-size:13px">Se crea también su cuenta para entrar a la app como barbero.</p><div class="row">
+      <div><label>Nombre completo</label><input id="bNombre"></div>
+      <div><label>Teléfono</label><input id="bTel"></div>
+      <div><label>Especialidad</label><input id="bEsp"></div>
+      <div><label>Correo (acceso)</label><input id="bCorreo" type="email"></div>
+      <div><label>Contraseña (mín. 8)</label><input id="bPass" type="password"></div>
+      <div style="flex:0"><button class="btn" onclick="crearBarbero()">Agregar</button></div></div></div>
+    <div class="card scroll"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Especialidad</th><th>Correo de acceso</th><th></th></tr></thead><tbody>
+    ${barberos.map(b => `<tr id="br${b.id}"><td>${esc(b.nombre)}</td><td>${esc(b.telefono)}</td><td>${esc(b.especialidad)}</td><td>${esc(b.correo || "—")}</td>
+      <td class="right" style="white-space:nowrap"><button class="btn sec sm" onclick="editarBarbero(${b.id})">Editar</button>
+      <button class="btn dng sm" onclick="borrarBarbero(${b.id})">Eliminar</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+window.crearBarbero = guard(async () => {
+  await api("POST", "/admin/barberos", { nombre: $("bNombre").value.trim(), telefono: $("bTel").value.trim(),
+    especialidad: $("bEsp").value.trim(), correo: $("bCorreo").value.trim(), password: $("bPass").value });
+  flash("Barbero creado"); await vBarberos();
+});
+window.editarBarbero = id => {
+  const b = barberos.find(x => x.id === id);
+  $("br" + id).innerHTML = `<td><input id="x1" value="${esc(b.nombre)}"></td><td><input id="x2" value="${esc(b.telefono)}" style="width:130px"></td>
+    <td><input id="x3" value="${esc(b.especialidad)}"></td><td class="muted">${esc(b.correo || "—")}</td>
+    <td class="right" style="white-space:nowrap"><button class="btn sm" onclick="guardarBarbero(${id})">Guardar</button> <button class="btn sec sm" onclick="vBarberos()">Cancelar</button></td>`;
+};
+window.guardarBarbero = guard(async id => {
+  await api("PUT", `/admin/barberos/${id}`, { nombre: $("x1").value.trim(), telefono: $("x2").value.trim(), especialidad: $("x3").value.trim() });
+  flash("Barbero actualizado"); await vBarberos();
+});
+window.borrarBarbero = guard(async id => {
+  if (!confirm("¿Eliminar este barbero y su cuenta de acceso?")) return;
+  await api("DELETE", `/admin/barberos/${id}`); flash("Barbero eliminado"); await vBarberos();
+});
+
+/* ---------- Horarios (RF-010) ---------- */
+async function vHorarios() {
+  const el = $("p-horarios");
+  const sel = $("hBarbero") ? $("hBarbero").value : (barberos[0] && barberos[0].id);
+  if (!barberos.length) { el.innerHTML = '<h2>Horarios</h2><p class="muted">Primero crea un barbero.</p>'; return; }
+  const h = await api("GET", `/admin/barberos/${sel}/horarios`);
+  el.innerHTML = `<h2 style="margin-bottom:12px">Horarios de atención</h2>
+    <div class="card"><div class="row" style="margin-bottom:12px"><div style="max-width:300px"><label>Barbero</label>
+      <select id="hBarbero" onchange="vHorarios()" style="width:100%">${bOpts(sel)}</select></div></div>
+      ${h.personalizado ? "" : '<p class="muted" style="margin:0 0 10px">Este barbero usa el horario por defecto (09:00–18:00, todos los días). Guarda para personalizarlo.</p>'}
+      <table class="days"><thead><tr><th>Día</th><th>Atiende</th><th>Desde</th><th>Hasta</th></tr></thead><tbody>
+      ${h.dias.map(d => `<tr><td>${DIAS[d.dia_semana]}</td><td><input type="checkbox" id="ha${d.dia_semana}" ${d.atiende ? "checked" : ""}></td>
+        <td><input type="time" id="hi${d.dia_semana}" value="${d.inicio}" step="1800"></td><td><input type="time" id="hf${d.dia_semana}" value="${d.fin}" step="1800"></td></tr>`).join("")}
+      </tbody></table>
+      <p style="margin:14px 0 0"><button class="btn" onclick="guardarHorario(${sel})">Guardar horario</button></p></div>`;
+}
+window.guardarHorario = guard(async id => {
+  const dias = [...Array(7).keys()].map(d => ({ dia_semana: d, atiende: $("ha" + d).checked, inicio: $("hi" + d).value, fin: $("hf" + d).value }));
+  await api("PUT", `/admin/barberos/${id}/horarios`, dias); flash("Horario guardado. Ya se refleja en la app."); await vHorarios();
+});
+
+/* ---------- Reseñas ---------- */
+async function vResenas() {
+  const r = await api("GET", "/admin/resenas");
+  $("p-resenas").innerHTML = `<h2 style="margin-bottom:12px">Reseñas de clientes</h2>
+    <div class="grid" style="margin-bottom:16px"><div class="stat"><b>${r.promedio ?? "–"}</b><span>Calificación promedio</span></div>
+    <div class="stat"><b>${r.total}</b><span>Reseñas recibidas</span></div></div>
+    ${r.resenas.length ? r.resenas.map(x => `<div class="card"><div class="row" style="justify-content:space-between;align-items:center">
+      <span class="stars" aria-label="${x.calificacion} de 5">${stars(x.calificacion)}</span><span class="muted">${esc(x.fecha_hora)}</span></div>
+      <p style="margin:8px 0">${x.comentario ? esc(x.comentario) : '<span class="muted">Sin comentario</span>'}</p>
+      <small class="muted">${esc(x.cliente)} · ${esc(x.servicio)} con ${esc(x.barbero)}</small></div>`).join("")
+      : '<div class="card muted">Todavía no hay reseñas.</div>'}`;
+}
+
+/* ---------- Reportes (RF-014) ---------- */
+function rango(tipo) {
+  const h = new Date(), d = new Date();
+  if (tipo === "dia") return [iso(h), iso(h)];
+  if (tipo === "semana") { const dow = (h.getDay() + 6) % 7; d.setDate(h.getDate() - dow); return [iso(d), iso(h)]; }
+  return [iso(new Date(h.getFullYear(), h.getMonth(), 1)), iso(h)];
+}
+async function vReportes() {
+  const el = $("p-reportes");
+  if (!el.dataset.init) {
+    el.dataset.init = 1; const [d, h] = rango("mes");
+    el.innerHTML = `<h2 style="margin-bottom:12px">Reportes de ingresos y ocupación</h2>
+      <div class="card"><div class="row">
+        <div style="flex:0;white-space:nowrap"><button class="btn sec" onclick="preset('dia')">Hoy</button> <button class="btn sec" onclick="preset('semana')">Esta semana</button> <button class="btn sec" onclick="preset('mes')">Este mes</button></div>
+        <div><label>Desde</label><input type="date" id="rDesde" value="${d}"></div>
+        <div><label>Hasta</label><input type="date" id="rHasta" value="${h}"></div>
+        <div style="flex:0"><button class="btn" onclick="vReportes().catch(e=>flash(e.message,false))">Generar</button></div></div></div>
+      <div id="repOut"></div>`;
+  }
+  const r = await api("GET", `/admin/reportes?desde=${$("rDesde").value}&hasta=${$("rHasta").value}`);
+  const max = Math.max(1, ...r.por_dia.map(x => x.ingresos));
+  $("repOut").innerHTML = `
+    <div class="grid" style="margin-bottom:16px">
+      <div class="stat"><b>${money(r.ingresos_totales)}</b><span>Ingresos (citas completadas)</span></div>
+      <div class="stat"><b>${r.citas_totales}</b><span>Citas vigentes y atendidas</span></div>
+      <div class="stat"><b>${r.completadas}</b><span>Completadas</span></div>
+      <div class="stat"><b>${r.canceladas}</b><span>Canceladas</span></div>
+      <div class="stat"><b>${r.no_asistio}</b><span>No asistieron</span></div></div>
+    <div class="card scroll"><h3 style="margin-bottom:10px">Por barbero</h3><table><thead><tr><th>Barbero</th><th>Citas</th><th>Completadas</th><th>Canceladas</th><th>No asistió</th><th>Ingresos</th><th style="min-width:160px">Ocupación</th></tr></thead><tbody>
+      ${r.por_barbero.map(b => `<tr><td>${esc(b.nombre)}</td><td>${b.citas}</td><td>${b.completadas}</td><td>${b.canceladas}</td><td>${b.no_asistio}</td><td>${money(b.ingresos)}</td>
+        <td><div class="bar"><i style="width:${Math.min(100, b.ocupacion_pct)}%"></i></div><small class="muted">${b.ocupacion_pct}%</small></td></tr>`).join("")}</tbody></table></div>
+    <div class="card"><h3>Ingresos por día</h3>
+      <div class="chart" role="img" aria-label="Ingresos por día">${r.por_dia.map(x => `<div title="${x.fecha}: ${money(x.ingresos)} (${x.citas} citas)" style="height:${Math.max(2, 100 * x.ingresos / max)}%"></div>`).join("")}</div>
+      <div class="row muted" style="justify-content:space-between;font-size:12px;margin-top:6px"><span>${esc(r.desde)}</span><span>${esc(r.hasta)}</span></div></div>`;
+}
+window.preset = t => { const [d, h] = rango(t); $("rDesde").value = d; $("rHasta").value = h; vReportes().catch(e => flash(e.message, false)); };
+
+if (token) start().catch(() => logout()); else $("lCorreo").focus();
+</script>
+</body>
+</html>

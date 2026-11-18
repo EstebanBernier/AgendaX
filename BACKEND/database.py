@@ -17,3 +17,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base es de donde heredaremos todos nuestros modelos
 Base = declarative_base()
+
+
+# Dependencia de FastAPI: una sesión de BD por petición
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

@@ -1,18 +1,14 @@
+import os
+
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-import bcrypt
-from datetime import datetime, timedelta
-from database import SessionLocal, engine
+from database import engine, get_db
 import models
 import schemas
-
-# Configuración de encriptación de contraseñas con bcrypt directo
-def hash_password(password: str):
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str):
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+import horarios
+import admin
+from security import hash_password, verify_password, require_admin
 
 # Crea las tablas si todavía no existen (necesario en un servidor nuevo)
 models.Base.metadata.create_all(bind=engine)
@@ -31,13 +27,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependencia para obtener la sesión de base de datos en cada petición
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Panel de administración: API (/admin/...) y página web (/admin)
+app.include_router(admin.router)
+
+@app.get("/admin", include_in_schema=False)
+def panel_admin():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)), "admin.html"))
 
 @app.get("/")
 def read_root():
@@ -94,7 +89,7 @@ def listar_barberos(db: Session = Depends(get_db)):
     return db.query(models.Barbero).all()
 
 @app.post("/barberos/", response_model=schemas.BarberoResponse, status_code=status.HTTP_201_CREATED)
-def crear_barbero(barbero: schemas.BarberoCreate, db: Session = Depends(get_db)):
+def crear_barbero(barbero: schemas.BarberoCreate, db: Session = Depends(get_db), _=Depends(require_admin)):
     nuevo_barbero = models.Barbero(**barbero.dict())
     db.add(nuevo_barbero)
     db.commit()
@@ -104,43 +99,22 @@ def crear_barbero(barbero: schemas.BarberoCreate, db: Session = Depends(get_db))
 @app.get("/barberos/{barbero_id}/disponibilidad")
 def consultar_disponibilidad(barbero_id: int, fecha: str, db: Session = Depends(get_db)):
     """
-    RF-004: Retorna los horarios disponibles (slots de 30 mins de 09:00 a 18:00)
-    para un barbero en una fecha específica (ej. fecha='2026-11-20').
+    RF-004: Horas de inicio libres (cada 30 min) de un barbero en una fecha (AAAA-MM-DD).
+    Respeta el horario definido por el administrador (RF-010; por defecto 09:00-18:00)
+    y descarta las horas que se cruzan con citas vigentes según su duración.
     """
-    # Verificar que el barbero exista
     barbero = db.query(models.Barbero).filter(models.Barbero.id == barbero_id).first()
     if not barbero:
         raise HTTPException(status_code=404, detail="Barbero no encontrado")
 
-    # Horario laboral estándar: 09:00 a 18:00
-    slots_posibles = [
-        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-        "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
-        "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"
-    ]
-
-    # Obtener citas agendadas para este barbero en la fecha dada (excluyendo canceladas)
-    citas_existentes = db.query(models.Cita).filter(
-        models.Cita.barbero_id == barbero_id,
-        models.Cita.fecha_hora.like(f"{fecha}%"),
-        models.Cita.estado != "cancelada"
-    ).all()
-
-    # Extraer solo las horas ocupadas (ej. "10:00" de "2026-11-20 10:00")
-    horas_ocupadas = []
-    for cita in citas_existentes:
-        # fecha_hora viene como "YYYY-MM-DD HH:MM"
-        partes = cita.fecha_hora.split(" ")
-        if len(partes) == 2:
-            horas_ocupadas.append(partes[1])
-
-    # Filtrar slots disponibles
-    slots_disponibles = [slot for slot in slots_posibles if slot not in horas_ocupadas]
+    dia = horarios.parse_fecha(fecha)
+    j = horarios.jornada(db, barbero_id, dia)
 
     return {
         "barbero_id": barbero_id,
         "fecha": fecha,
-        "horarios_disponibles": slots_disponibles
+        "jornada": {"inicio": horarios.a_hhmm(j[0]), "fin": horarios.a_hhmm(j[1])} if j else None,
+        "horarios_disponibles": horarios.disponibles(db, barbero_id, dia),
     }
 
 
@@ -151,7 +125,7 @@ def listar_servicios(db: Session = Depends(get_db)):
     return db.query(models.Servicio).all()
 
 @app.post("/servicios/", response_model=schemas.ServicioResponse, status_code=status.HTTP_201_CREATED)
-def crear_servicio(servicio: schemas.ServicioCreate, db: Session = Depends(get_db)):
+def crear_servicio(servicio: schemas.ServicioCreate, db: Session = Depends(get_db), _=Depends(require_admin)):
     nuevo_servicio = models.Servicio(**servicio.dict())
     db.add(nuevo_servicio)
     db.commit()
@@ -172,18 +146,8 @@ def listar_citas(barbero_id: int = None, cliente_id: int = None, db: Session = D
 
 @app.post("/citas/", response_model=schemas.CitaResponse, status_code=status.HTTP_201_CREATED)
 def crear_cita(cita: schemas.CitaCreate, db: Session = Depends(get_db)):
-    # RNF-006: Evitar doble reserva
-    cita_existente = db.query(models.Cita).filter(
-        models.Cita.barbero_id == cita.barbero_id,
-        models.Cita.fecha_hora == cita.fecha_hora,
-        models.Cita.estado != "cancelada"
-    ).first()
-
-    if cita_existente:
-        raise HTTPException(
-            status_code=400,
-            detail="El barbero ya tiene una cita reservada en este horario. Por favor elija otra hora."
-        )
+    # RNF-006: evitar doble reserva y respetar horario de atención y duración
+    horarios.validar_cita(db, cita.barbero_id, cita.servicio_id, cita.fecha_hora)
 
     nueva_cita = models.Cita(
         cliente_id=cita.cliente_id,
@@ -206,16 +170,8 @@ def reprogramar_cita(cita_id: int, nueva_fecha_hora: str, db: Session = Depends(
     if not cita:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
 
-    # Verificar disponibilidad en la nueva fecha/hora para el mismo barbero
-    conflicto = db.query(models.Cita).filter(
-        models.Cita.barbero_id == cita.barbero_id,
-        models.Cita.fecha_hora == nueva_fecha_hora,
-        models.Cita.estado != "cancelada",
-        models.Cita.id != cita_id
-    ).first()
-
-    if conflicto:
-        raise HTTPException(status_code=400, detail="El horario seleccionado ya está ocupado.")
+    # Verificar horario y disponibilidad en la nueva fecha/hora para el mismo barbero
+    horarios.validar_cita(db, cita.barbero_id, cita.servicio_id, nueva_fecha_hora, ignorar_cita_id=cita_id)
 
     cita.fecha_hora = nueva_fecha_hora
     cita.estado = "agendada"  # Opcional: actualizar estado si estaba confirmada
@@ -275,7 +231,7 @@ def crear_resena(resena: schemas.ResenaCreate, db: Session = Depends(get_db)):
 #REPORTES ADMINISTRATIVOS
 
 @app.get("/admin/reportes/ingresos")
-def reporte_ingresos(db: Session = Depends(get_db)):
+def reporte_ingresos(db: Session = Depends(get_db), _=Depends(require_admin)):
     """
     RF-014: Reporte de ingresos totales basado en citas completadas.
     """

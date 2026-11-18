@@ -52,3 +52,16 @@ class Resena(Base):
     cita_id = Column(Integer, ForeignKey("citas.id"))
     calificacion = Column(Integer)  # 1 a 5 estrellas
     comentario = Column(String, nullable=True)
+
+
+class Horario(Base):
+    """Jornada de un barbero para un día de la semana (0 = lunes ... 6 = domingo).
+    Si un barbero NO tiene filas, se usa el horario por defecto 09:00-18:00 todos los días.
+    Si tiene filas, los días sin fila son descanso."""
+    __tablename__ = "horarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    barbero_id = Column(Integer, ForeignKey("barberos.id"), index=True)
+    dia_semana = Column(Integer)   # 0..6
+    inicio = Column(String)        # "HH:MM"
+    fin = Column(String)           # "HH:MM"

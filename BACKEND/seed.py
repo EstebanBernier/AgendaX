@@ -7,7 +7,7 @@ que usa la app (los mismos de los mockups).
 """
 from database import SessionLocal, engine, Base
 import models
-from main import hash_password
+from security import hash_password
 
 SERVICIOS = [
     ("Corte clásico", "Acabado tradicional a tijera o máquina", 25000, 30),

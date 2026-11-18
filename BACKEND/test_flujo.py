@@ -6,11 +6,12 @@ import sys, json, urllib.request, urllib.parse, urllib.error, time
 BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://127.0.0.1:8001"
 ok = fail = 0
 
-def call(method, path, body=None, query=None):
+def call(method, path, body=None, query=None, token=None):
     url = BASE + path + ("?" + urllib.parse.urlencode(query) if query else "")
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method,
-                                 headers={"Content-Type": "application/json"})
+                                 headers={"Content-Type": "application/json",
+                                          **({"Authorization": "Bearer " + token} if token else {})})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             return r.status, json.loads(r.read().decode() or "null")
@@ -77,7 +78,9 @@ s, e = call("PUT", f"/citas/{c['id']}/estado", query={"nuevo_estado": "completad
 s, rv = call("POST", "/resenas/", {"cita_id": c["id"], "calificacion": 5, "comentario": "Excelente"})
 check("crear reseña", s == 201)
 s, rs = call("GET", "/resenas/"); check("listar reseñas", s == 200 and any(x["cita_id"] == c["id"] for x in rs))
-s, rep = call("GET", "/admin/reportes/ingresos"); check("reporte de ingresos", s == 200 and rep["total_citas_completadas"] >= 1)
+s, rep = call("GET", "/admin/reportes/ingresos"); check("reporte de ingresos sin token -> 401", s == 401)
+s, ad = call("POST", "/admin/login", {"correo": "admin@delux.com", "password": "Admin12345"})
+s, rep = call("GET", "/admin/reportes/ingresos", token=ad["token"]); check("reporte de ingresos con token", s == 200 and rep["total_citas_completadas"] >= 1)
 
 s, k = call("PUT", f"/citas/{c['id']}/cancelar")
 check("cancelar", s == 200 and k["estado"] == "cancelada")
